@@ -41,11 +41,21 @@
       <version>3.2.2</version>
     </dependency>
     <!--<dependency>
+      <groupId>org.apache.hive</groupId>
+      <artifactId>hive-jdbc</artifactId>
+      <version>3.1.2</version>
+    </dependency>-->
+    <dependency>
+      <groupId>jdk.tools</groupId>
+      <artifactId>jdk.tools</artifactId>
+      <scope>system</scope>
+      <systemPath>${java.home}/lib/tools-1.11.0.jar</systemPath>
+    </dependency>
+     <dependency>
       <groupId>org.apache.spark</groupId>
       <artifactId>spark-hive_2.12</artifactId>
       <version>3.2.2</version>
-      <scope>provided</scope>
-    </dependency>-->
+    </dependency>
   </dependencies>
   <build>
     <sourceDirectory>src/main/scala</sourceDirectory>
