@@ -1,0 +1,92 @@
+version: '3'
+services:  
+  zookeeper:
+    image: confluentinc/cp-zookeeper:latest
+    environment:
+      - ZOOKEEPER_SERVER_ID=1
+      - ZOOKEEPER_CLIENT_PORT=2181
+      - ZOOKEEPER_TICK_TIMES=2000
+    ports:
+      - 2181:2181
+  kafka:
+    image: confluentinc/cp-kafka:latest
+    environment:
+      - KAFKA_BROKER_ID=1
+      - KAFKA_ZOOKEEPER_CONNECT=zookeeper:2181
+      - KAFKA_ADVERTISED_LISTENERS=LISTENER_DOCKER_INTERNAL://kafka:29092,LISTENER_DOCKER_EXTERNAL://localhost:9092
+      - KAFKA_LISTENER_SECURITY_PROTOCOL_MAP=LISTENER_DOCKER_INTERNAL:PLAINTEXT,LISTENER_DOCKER_EXTERNAL:PLAINTEXT
+      - KAFKA_INTER_BROKER_LISTENER_NAME=LISTENER_DOCKER_INTERNAL
+      - KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR=1
+    ports:
+      - 9092:9092
+    depends_on:
+      - zookeeper
+
+  namenode:
+    image: bde2020/hadoop-namenode:latest
+    container_name: namenode
+    volumes:
+      - ./hdfs/namenode:/hadoop/dfs/name
+    environment:
+      - CLUSTER_NAME=hive
+    env_file:
+      - ./hadoop-hive.env
+    ports:
+      - "10070:50070"
+
+  datanode:
+    image: bde2020/hadoop-datanode:latest
+    container_name: datanode
+    volumes:
+      - ./hdfs/datanode:/hadoop/dfs/data
+    environment:
+      SERVICE_PRECONDITION: "namenode:50070"  
+    env_file:
+      - ./hadoop-hive.env
+    depends_on:
+      - namenode
+    ports:
+      - "10075:50075"
+
+  hive-server:
+    container_name: hive-server
+    image: apache/hive:3.1.3
+    ports:
+      - 10000:10000
+    volumes:
+      - ./nintendo:/nintendo
+      - ./microsoft:/microsoft
+      - ./conf/metastore-site.xml:/opt/hive/conf/hive-site.xml
+      - ./drivers/mysql-connector-java-8.0.19.jar:/opt/hive/lib/mysql-connector-java-8.0.19.jar
+    environment:
+      HIVE_CORE_CONF_javax_jdo_option_ConnectionURL: "jdbc:mariadb://hive-metastore/metastore"
+      SERVICE_OPTS: "-Dhive.metastore.uris=thrift://metastore:9083"
+      SERVICE_NAME: "hiveserver2"
+      IS_RESUME: true
+    depends_on:
+      - hive-metastore
+
+  hive-metastore:
+    container_name: hive-metastore
+    build: .
+    image: hive-metastore:latest
+    ports:
+    - 9083:9083
+    depends_on:
+      - mariadb
+
+  mariadb:
+    container_name: mariadb
+    image: mariadb:10.4
+    ports:
+      - 3306:3306
+    command: --max_allowed_packet=32505856
+    environment:
+      MYSQL_ROOT_PASSWORD: admin
+      MYSQL_USER: admin
+      MYSQL_PASSWORD: admin
+      MYSQL_DATABASE: metastore_db
+      MYSQL_ROOT_HOST: '%'
+networks:
+ default:
+  name: hive

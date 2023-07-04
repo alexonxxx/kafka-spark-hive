@@ -2,7 +2,6 @@ version: '3'
 services:  
   zookeeper:
     image: confluentinc/cp-zookeeper:latest
-    restart: always
     environment:
       - ZOOKEEPER_SERVER_ID=1
       - ZOOKEEPER_CLIENT_PORT=2181
@@ -11,7 +10,6 @@ services:
       - 2181:2181
   kafka:
     image: confluentinc/cp-kafka:latest
-    restart: always
     environment:
       - KAFKA_BROKER_ID=1
       - KAFKA_ZOOKEEPER_CONNECT=zookeeper:2181
@@ -23,72 +21,52 @@ services:
       - 9092:9092
     depends_on:
       - zookeeper
-
-  namenode:
-    image: bde2020/hadoop-namenode:2.0.0-hadoop2.7.4-java8
-    container_name: namenode
-    volumes:
-      - ./hdfs/namenode:/hadoop/dfs/name
-    environment:
-      - CLUSTER_NAME=hive
-      - HADOOP_HOME=/opt/hadoop-2.7.4
-    env_file:
-      - ./hadoop-hive.env
-    ports:
-      - "10070:10070"
-
-  datanode:
-    image: bde2020/hadoop-datanode:2.0.0-hadoop2.7.4-java8
-    container_name: datanode
-    volumes:
-      - ./hdfs/datanode:/hadoop/dfs/data
-    env_file:
-      - ./hadoop-hive.env
-    environment:
-      - HADOOP_HOME=/opt/hadoop-2.7.4
-    environment:
-      SERVICE_PRECONDITION: "namenode:50070"  
-    depends_on:
-      - namenode
-    ports:
-      - "10075:50075"
-
   hive-server:
-    image: bde2020/hive:2.3.2-postgresql-metastore
     container_name: hive-server
+    image: apache/hive:3.1.3
+    ports:
+      - 10000:10000
     volumes:
       - ./nintendo:/nintendo
       - ./microsoft:/microsoft
-      - ./interactive:/interactive
-      - ./sony:/sony
-      - ./activision:/activision
-    env_file:
-      - ./hadoop-hive.env
+      - ./conf-mysql/hive-site.xml:/opt/hive/conf/hive-site.xml
     environment:
-      HIVE_CORE_CONF_javax_jdo_option_ConnectionURL: "jdbc:postgresql://hive-metastore/metastore"
-      SERVICE_PRECONDITION: "hive-metastore:9083"
+      HIVE_CORE_CONF_javax_jdo_option_ConnectionURL: "jdbc:mysqldb://hive-metastore/metastore_db"
+      SERVICE_OPTS: "-Dhive.metastore.uris=thrift://metastore:9083"
+      SERVICE_NAME: hiveserver2
+      IS_RESUME: true
     depends_on:
       - hive-metastore
-    ports:
-      - "10000:10000"
 
   hive-metastore:
-    image: bde2020/hive:2.3.2-postgresql-metastore
     container_name: hive-metastore
-    env_file:
-      - ./hadoop-hive.env
-    command: /opt/hive/bin/hive --service metastore
+    image: apache/hive:3.1.3
     environment:
-      SERVICE_PRECONDITION: "namenode:50070 datanode:50075 hive-metastore-postgresql:5432"
-    depends_on:
-      - hive-metastore-postgresql
-    ports:
-      - "9083:9083"
-
-  hive-metastore-postgresql:
-    image: bde2020/hive-metastore-postgresql:2.3.0
-    container_name: hive-metastore-postgresql
+      - SERVICE_NAME=metastore
+      - DB_DRIVER=mysql
+      - HIVE_CUSTOM_CONF_DIR=/conf-mysql
+      - IS_RESUME=true
     volumes:
-      - ./metastore-postgresql/postgresql/data:/var/lib/postgresql/data
+    - ./warehouse:/opt/hive/data/warehouse
+    - ./drivers/mysql-connector-java-8.0.19.jar:/opt/hive/lib/mysql-connector-java-8.0.19.jar
+    - ./conf-mysql/hive-site.xml:/opt/hive/conf/hive-site.xml
+    - ./scripts/entrypoint-mysql.sh:/entrypoint.sh
+    ports:
+    - 9083:9083
     depends_on:
-      - datanode
+      - mysqldb
+  mysqldb:
+    container_name: mysqldb
+    image: mysql:5.7
+    ports:
+      - 3306:3306
+    command: --max_allowed_packet=32505856
+    environment:
+      MYSQL_ROOT_PASSWORD: admin
+      MYSQL_USER: hive
+      MYSQL_PASSWORD: hive
+      MYSQL_DATABASE: metastore_db
+      MYSQL_ROOT_HOST: '%'
+networks:
+ default:
+  name: hive

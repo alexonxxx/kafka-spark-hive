@@ -1,9 +1,9 @@
 use videogames;
-create external table if not exists nintendo(
-  id int,
-  name string,
+create table if not exists nintendo(
+  cid int,
+  cname string,
   platform string,
-  year int,
+  cyear int,
   publisher string,
   naSales float,
   euSales float,
@@ -13,4 +13,4 @@ create external table if not exists nintendo(
 row format delimited
 fields terminated by ','
 lines terminated by '\n'
-stored as textfile location 'hdfs://namenode:8020/user/hive/warehouse/videogames.db/nintendo';
+stored as PARQUET';
