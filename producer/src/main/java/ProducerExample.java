@@ -37,12 +37,17 @@ public class ProducerExample {
         }
         KafkaProducer<String, String> producer = producerFactory();
         records.stream().forEach((videoGame) -> {
-            System.out.println(videoGame.toString());
-            ObjectMapper mapper = new ObjectMapper();
+
             try {
+                Thread.sleep(200);
+                System.out.println(videoGame.toString());
+                ObjectMapper mapper = new ObjectMapper();
                 ProducerRecord<String, String> record=new ProducerRecord<String, String>("test", mapper.writeValueAsString(videoGame));
                 producer.send(record);
-            } catch (JsonProcessingException e) {
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+            catch (JsonProcessingException e) {
                 e.printStackTrace();
             }
         });
